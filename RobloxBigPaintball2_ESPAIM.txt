@@ -36,7 +36,7 @@ local function createStatusLabel(name, position, text)
     return label
 end
 
-local aimbotLabel = createStatusLabel("AimbotStatus", UDim2.new(0, 10, 0, 10), "Toggle F to enable AIMBOT (works on snipers)")
+local aimbotLabel = createStatusLabel("AimbotStatus", UDim2.new(0, 10, 0, 10), "F to enable AIMBOT (works on snipers)")
 local espLabel = createStatusLabel("ESPStatus", UDim2.new(0, 10, 0, 50), "Toggle G to enable ESP")
 
 local function updateGui()
