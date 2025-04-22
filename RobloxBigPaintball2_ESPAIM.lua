@@ -1,0 +1,145 @@
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local Camera = Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local AIMBOT_FOV = 200
+local AIMBOT_DELAY = 0
+local PREDICTION_STEPS = 10
+
+local highlights = {}
+local validModels = {}
+
+local espEnabled = false
+local aimbotEnabled = false
+
+local screenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+screenGui.Name = "AimbotEspGui"
+
+local function createStatusLabel(name, position, text)
+    local label = Instance.new("TextLabel")
+    label.Name = name
+    label.Size = UDim2.new(0, 300, 0, 30)
+    label.Position = position
+    label.BackgroundTransparency = 0.3
+    label.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    label.BorderSizePixel = 0
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0.7
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 18
+    label.Text = text
+    label.Parent = screenGui
+    return label
+end
+
+local aimbotLabel = createStatusLabel("AimbotStatus", UDim2.new(0, 10, 0, 10), "F to enable Aimbot (works on snipers)")
+local espLabel = createStatusLabel("ESPStatus", UDim2.new(0, 10, 0, 50), "Toggle G to enable ESP (need time to load)")
+
+local function updateGui()
+    aimbotLabel.TextColor3 = aimbotEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    espLabel.TextColor3 = espEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+end
+
+local function createHighlightForModel(model)
+    if highlights[model] or not espEnabled then return end
+    if model and model:FindFirstChild("HumanoidRootPart") then
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = model
+        highlight.FillTransparency = 0.9
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = game.CoreGui
+        highlights[model] = highlight
+    end
+end
+
+local function cleanInvalid()
+    for model, highlight in pairs(highlights) do
+        if not model or not model:IsDescendantOf(Workspace) or not model:FindFirstChild("HumanoidRootPart") or not espEnabled then
+            if highlight then
+                highlight:Destroy()
+            end
+            highlights[model] = nil
+            validModels[model] = nil
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        for _, model in pairs(Workspace:GetDescendants()) do
+            if model:IsA("Model") and model ~= LocalPlayer.Character and model:FindFirstChild("HumanoidRootPart") then
+                if not validModels[model] then
+                    validModels[model] = true
+                    createHighlightForModel(model)
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+local function getNearestTarget()
+    local closestModel = nil
+    local shortestDistance = AIMBOT_FOV
+    local mouseLocation = UserInputService:GetMouseLocation()
+
+    for model in pairs(validModels) do
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                local velocity = hrp.Velocity
+                local moveDirection = velocity.Magnitude > 0 and velocity.Unit or Vector3.zero
+                local predictedPosition = hrp.Position
+
+                for _ = 1, PREDICTION_STEPS do
+                    predictedPosition = predictedPosition + moveDirection * AIMBOT_DELAY
+                end
+
+                predictedPosition += hrp.CFrame.LookVector * 5
+
+                local predictedScreenPos, onScreenPredicted = Camera:WorldToViewportPoint(predictedPosition)
+                if onScreenPredicted then
+                    local dist = (Vector2.new(predictedScreenPos.X, predictedScreenPos.Y) - Vector2.new(mouseLocation.X, mouseLocation.Y)).Magnitude
+                    if dist < shortestDistance then
+                        shortestDistance = dist
+                        closestModel = model
+                    end
+                end
+            end
+        end
+    end
+    return closestModel
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.F then
+        aimbotEnabled = not aimbotEnabled
+        updateGui()
+    elseif input.KeyCode == Enum.KeyCode.G then
+        espEnabled = not espEnabled
+        updateGui()
+        for model, highlight in pairs(highlights) do
+            if highlight then
+                highlight.Enabled = espEnabled
+            end
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    cleanInvalid()
+    if aimbotEnabled and (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)) then
+        local target = getNearestTarget()
+        if target and target:FindFirstChild("HumanoidRootPart") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.HumanoidRootPart.Position)
+        end
+    end
+end)
