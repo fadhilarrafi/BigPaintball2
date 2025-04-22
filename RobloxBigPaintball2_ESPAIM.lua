@@ -37,7 +37,7 @@ local function createStatusLabel(name, position, text)
 end
 
 local aimbotLabel = createStatusLabel("AimbotStatus", UDim2.new(0, 10, 0, 10), "F to enable Aimbot (works on snipers)")
-local espLabel = createStatusLabel("ESPStatus", UDim2.new(0, 10, 0, 50), "Toggle G to enable ESP (need time to load)")
+local espLabel = createStatusLabel("ESPStatus", UDim2.new(0, 10, 0, 50), "G to enable ESP (need time to load)")
 
 local function updateGui()
     aimbotLabel.TextColor3 = aimbotEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
